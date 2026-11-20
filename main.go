@@ -54,6 +54,25 @@ func newServer(c *Client) *mcp.Server {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name: "reconcile_orders",
+		Description: "Đối soát hàng loạt đơn hàng với tiền chuyển khoản: mỗi đơn (mã đơn + số tiền) trả về đã trả đủ / thiếu / dư / chưa trả, " +
+			"cộng dồn nếu khách chuyển nhiều lần, kèm danh sách tiền vào không khớp đơn nào. " +
+			"Reconcile orders against incoming bank transfers by order code in the transfer content.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ReconcileInput) (*mcp.CallToolResult, ReconcileOutput, error) {
+		if err := validateOrders(in.Orders); err != nil {
+			return nil, ReconcileOutput{}, err
+		}
+		q := dateRange(in.From, in.To)
+		setIf(q, "account_number", in.AccountNumber)
+		q.Set("limit", "5000")
+		txs, err := c.ListTransactions(ctx, q)
+		if err != nil {
+			return nil, ReconcileOutput{}, err
+		}
+		return nil, reconcile(in.Orders, txs), nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_bank_accounts",
 		Description: "Liệt kê các tài khoản ngân hàng đã liên kết với SePay, kèm số dư. List linked bank accounts with balances.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, AccountsOutput, error) {

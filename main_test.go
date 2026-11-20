@@ -88,9 +88,54 @@ func TestTools(t *testing.T) {
 		t.Errorf("qr: %s", qr.URL)
 	}
 
+	var rec ReconcileOutput
+	call("reconcile_orders", map[string]any{"orders": []map[string]any{{"code": "DH123", "amount": 500000}}}, &rec)
+	if rec.Paid != 1 || len(rec.Unmatched) != 1 {
+		t.Errorf("reconcile_orders: %+v", rec)
+	}
+	if res := call("reconcile_orders", map[string]any{"orders": []map[string]any{}}, nil); !res.IsError {
+		t.Error("expected error for empty orders")
+	}
+
 	// Sai token -> lỗi dễ hiểu, không crash.
 	c.Token = "bad"
 	if res := call("list_bank_accounts", nil, nil); !res.IsError {
 		t.Error("expected tool error for bad token")
+	}
+}
+
+func TestReconcile(t *testing.T) {
+	tx := func(id, amt, content string) Transaction {
+		return Transaction{ID: id, AmountIn: amt, AmountOut: "0.00", TransactionContent: content}
+	}
+	txs := []Transaction{
+		tx("1", "300000.00", "MOMO chuyen tien dh 123 cam on"),
+		tx("2", "200000.00", "DH123 lan 2"),                                              // trả 2 lần -> cộng dồn
+		tx("3", "50000.00", "DH45"),                                                      // thiếu
+		tx("4", "999000.00", "DH7"),                                                      // dư
+		tx("5", "10000.00", "tien la"),                                                   // không khớp đơn nào
+		{ID: "6", AmountIn: "0.00", AmountOut: "500000.00", TransactionContent: "DH123"}, // tiền ra, bỏ qua
+	}
+	out := reconcile([]Order{
+		{"DH123", 500000}, {"DH12", 100000}, {"DH45", 100000}, {"DH7", 500000},
+	}, txs)
+
+	want := map[string]string{"DH123": "paid", "DH12": "unpaid", "DH45": "partial", "DH7": "overpaid"}
+	for _, r := range out.Orders {
+		if r.Status != want[r.Code] {
+			t.Errorf("%s: got %s (received %d), want %s", r.Code, r.Status, r.Received, want[r.Code])
+		}
+	}
+	if out.Paid != 1 || out.Unpaid != 1 || out.Partial != 1 || out.Overpaid != 1 {
+		t.Errorf("counts: %+v", out)
+	}
+	if len(out.Unmatched) != 1 || out.Unmatched[0].ID != "5" {
+		t.Errorf("unmatched: %+v", out.Unmatched)
+	}
+	if !hasCode("abc DH12 xyz", "DH12") || hasCode("DH123", "DH12") || !hasCode("DH12ABC", "DH12") {
+		t.Error("hasCode boundary")
+	}
+	if validateOrders(nil) == nil || validateOrders([]Order{{"DH1", 0}}) == nil {
+		t.Error("validateOrders should reject empty/zero")
 	}
 }
