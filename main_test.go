@@ -27,7 +27,15 @@ func TestTools(t *testing.T) {
 		gotQuery = r.URL.RawQuery
 		switch r.URL.Path {
 		case "/transactions/list":
+			if r.URL.Query().Get("reference_number") == "nope" {
+				w.Write([]byte(`{"status":200,"transactions":[]}`))
+				return
+			}
 			w.Write([]byte(fakeList))
+		case "/transactions/details/3":
+			w.Write([]byte(`{"status":200,"transaction":{"id":"3","amount_in":"500000.00","reference_number":"r3"}}`))
+		case "/transactions/details/404":
+			w.Write([]byte(`{"status":200,"transaction":null}`))
 		case "/bankaccounts/list":
 			w.Write([]byte(`{"status":200,"bankaccounts":[{"id":"19","account_number":"001","accumulated":"1000.00","bank_short_name":"Vietcombank"}]}`))
 		}
@@ -86,6 +94,22 @@ func TestTools(t *testing.T) {
 	call("create_payment_qr", map[string]any{"account_number": "001", "bank": "VCB", "amount": 50000, "description": "thanh toan DH1"}, &qr)
 	if qr.URL != "https://vietqr.app/img?acc=001&amount=50000&bank=VCB&des=thanh%20toan%20DH1" {
 		t.Errorf("qr: %s", qr.URL)
+	}
+
+	var got Transaction
+	call("get_transaction", map[string]any{"id": "3"}, &got)
+	if got.ID != "3" || got.AmountIn != "500000.00" {
+		t.Errorf("get_transaction by id: %+v", got)
+	}
+	got = Transaction{}
+	call("get_transaction", map[string]any{"reference_number": "r3"}, &got)
+	if got.ID != "3" || !strings.Contains(gotQuery, "reference_number=r3") {
+		t.Errorf("get_transaction by ref: %+v, query %s", got, gotQuery)
+	}
+	for _, args := range []map[string]any{{"id": "404"}, {"reference_number": "nope"}, {}, {"id": "3", "reference_number": "r3"}} {
+		if res := call("get_transaction", args, nil); !res.IsError {
+			t.Errorf("get_transaction %v: expected error", args)
+		}
 	}
 
 	var rec ReconcileOutput

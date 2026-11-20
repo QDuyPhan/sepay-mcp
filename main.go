@@ -54,6 +54,15 @@ func newServer(c *Client) *mcp.Server {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_transaction",
+		Description: "Xem chi tiết một giao dịch theo ID SePay hoặc mã tham chiếu ngân hàng (mã trên ảnh chụp chuyển khoản của khách). " +
+			"Get one transaction by SePay id or bank reference number.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in GetInput) (*mcp.CallToolResult, Transaction, error) {
+		t, err := getTransaction(ctx, c, in)
+		return nil, t, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name: "reconcile_orders",
 		Description: "Đối soát hàng loạt đơn hàng với tiền chuyển khoản: mỗi đơn (mã đơn + số tiền) trả về đã trả đủ / thiếu / dư / chưa trả, " +
 			"cộng dồn nếu khách chuyển nhiều lần, kèm danh sách tiền vào không khớp đơn nào. " +
@@ -106,6 +115,36 @@ type ListInput struct {
 type ListOutput struct {
 	Count        int           `json:"count"`
 	Transactions []Transaction `json:"transactions"`
+}
+
+type GetInput struct {
+	ID              string `json:"id,omitempty" jsonschema:"ID giao dịch trong SePay"`
+	ReferenceNumber string `json:"reference_number,omitempty" jsonschema:"Mã tham chiếu ngân hàng, ví dụ 731086.040523.120001"`
+}
+
+func getTransaction(ctx context.Context, c *Client, in GetInput) (Transaction, error) {
+	var t Transaction
+	switch {
+	case (in.ID == "") == (in.ReferenceNumber == ""):
+		return t, fmt.Errorf("cần đúng một trong hai: id hoặc reference_number")
+	case in.ID != "":
+		var err error
+		if t, err = c.GetTransaction(ctx, in.ID); err != nil {
+			return t, err
+		}
+	default:
+		txs, err := c.ListTransactions(ctx, url.Values{"reference_number": {in.ReferenceNumber}})
+		if err != nil {
+			return t, err
+		}
+		if len(txs) > 0 {
+			t = txs[0]
+		}
+	}
+	if t.ID == "" {
+		return t, fmt.Errorf("không tìm thấy giao dịch")
+	}
+	return t, nil
 }
 
 type SummaryInput struct {

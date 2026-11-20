@@ -11,6 +11,7 @@ Chỉ đọc dữ liệu, không thể chuyển tiền hay sửa gì trên tài 
 | Tool | Làm gì |
 |---|---|
 | `list_transactions` | Liệt kê giao dịch, lọc theo ngày, số tài khoản, số tiền, nội dung (không phân biệt hoa thường và dấu cách) |
+| `get_transaction` | Chi tiết một giao dịch theo ID SePay hoặc mã tham chiếu ngân hàng (mã trên ảnh chụp chuyển khoản) |
 | `reconcile_orders` | Đối soát hàng loạt đơn (mã đơn + số tiền): đã trả đủ / thiếu / dư / chưa trả, cộng dồn khi khách chuyển nhiều lần, liệt kê tiền vào không khớp đơn nào |
 | `summarize_revenue` | Tổng tiền vào/ra, số giao dịch, theo ngày, giao dịch lớn nhất |
 | `list_bank_accounts` | Các tài khoản đã liên kết kèm số dư |

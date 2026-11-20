@@ -66,6 +66,13 @@ func (c *Client) ListTransactions(ctx context.Context, q url.Values) ([]Transact
 	return r.Transactions, c.get(ctx, "/transactions/list", q, &r)
 }
 
+func (c *Client) GetTransaction(ctx context.Context, id string) (Transaction, error) {
+	var r struct {
+		Transaction Transaction `json:"transaction"`
+	}
+	return r.Transaction, c.get(ctx, "/transactions/details/"+url.PathEscape(id), nil, &r)
+}
+
 func (c *Client) ListBankAccounts(ctx context.Context) ([]BankAccount, error) {
 	var r struct {
 		BankAccounts []BankAccount `json:"bankaccounts"`
