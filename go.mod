@@ -1,4 +1,4 @@
-module github.com/quangduy/sepay-mcp
+module github.com/QDuyPhan/sepay-mcp
 
 go 1.27.2
 

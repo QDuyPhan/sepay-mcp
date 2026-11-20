@@ -18,7 +18,7 @@ Chỉ đọc dữ liệu, không thể chuyển tiền hay sửa gì trên tài 
 ## Cài đặt
 
 1. Tạo API token: my.sepay.vn → Cấu hình công ty → API Access → Thêm API
-2. Build: `go install github.com/quangduy/sepay-mcp@latest` (hoặc `go build` trong thư mục này)
+2. Build: `go install github.com/QDuyPhan/sepay-mcp@latest` (hoặc `go build` trong thư mục này)
 
 **Claude Code**
 ```sh
