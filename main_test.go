@@ -46,7 +46,7 @@ func TestTools(t *testing.T) {
 	c.BaseURL = api.URL
 	ctx := context.Background()
 	st, ct := mcp.NewInMemoryTransports()
-	if _, err := newServer(c).Connect(ctx, st, nil); err != nil {
+	if _, err := newServer(c, true).Connect(ctx, st, nil); err != nil {
 		t.Fatal(err)
 	}
 	cs, err := mcp.NewClient(&mcp.Implementation{Name: "test"}, nil).Connect(ctx, ct, nil)

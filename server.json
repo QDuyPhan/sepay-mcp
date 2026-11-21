@@ -1,0 +1,35 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.QDuyPhan/sepay-mcp",
+  "title": "SePay",
+  "description": "SePay (Vietnam) bank transfers: transactions, order reconciliation, revenue, VietQR, VA orders.",
+  "repository": {
+    "url": "https://github.com/QDuyPhan/sepay-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/qduyphan/sepay-mcp:0.1.0",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "SEPAY_API_TOKEN",
+          "description": "SePay API token (my.sepay.vn > Cấu hình công ty > API Access)",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "SEPAY_ENABLE_WRITE",
+          "description": "Set to 1 to enable create_va_order and cancel_va_order",
+          "isRequired": false,
+          "format": "string",
+          "choices": ["0", "1"]
+        }
+      ]
+    }
+  ]
+}

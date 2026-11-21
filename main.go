@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/url"
@@ -14,22 +15,35 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+var version = "dev" // GoReleaser gắn version thật khi build
+
+var readOnly = &mcp.ToolAnnotations{ReadOnlyHint: true}
+
 func main() {
+	httpAddr := flag.String("http", "", "chạy MCP qua HTTP tại địa chỉ này (ví dụ :8080) thay vì stdio; mỗi request phải gửi header Authorization: Bearer <SePay token>")
+	flag.Parse()
+	allowWrite := os.Getenv("SEPAY_ENABLE_WRITE") == "1"
+
+	if *httpAddr != "" {
+		log.Fatal(serveHTTP(*httpAddr, allowWrite))
+	}
+
 	token := os.Getenv("SEPAY_API_TOKEN")
 	if token == "" {
 		log.Fatal("thiếu biến môi trường SEPAY_API_TOKEN (tạo token tại https://my.sepay.vn/companyapi)")
 	}
-	server := newServer(NewClient(token))
-	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+	if err := newServer(NewClient(token), allowWrite).Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func newServer(c *Client) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "sepay", Version: "0.1.0"}, nil)
+func newServer(c *Client, allowWrite bool) *mcp.Server {
+	s := mcp.NewServer(&mcp.Implementation{Name: "sepay", Version: version}, nil)
+	addVATools(s, c, allowWrite)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_transactions",
+		Name:        "list_transactions",
+		Annotations: readOnly,
 		Description: "Liệt kê giao dịch ngân hàng (tiền vào/ra) theo dõi bởi SePay. " +
 			"Dùng để kiểm tra khách đã chuyển khoản chưa: lọc theo số tiền (amount_in) và/hoặc nội dung chuyển khoản (content, ví dụ mã đơn DH123). " +
 			"List bank transactions tracked by SePay; filter by date, amount, transfer content.",
@@ -39,7 +53,8 @@ func newServer(c *Client) *mcp.Server {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "summarize_revenue",
+		Name:        "summarize_revenue",
+		Annotations: readOnly,
 		Description: "Tổng hợp tiền vào/ra trong một khoảng thời gian: tổng tiền, số giao dịch, theo từng ngày, giao dịch vào lớn nhất. " +
 			"Summarize money in/out over a date range.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SummaryInput) (*mcp.CallToolResult, Summary, error) {
@@ -54,7 +69,8 @@ func newServer(c *Client) *mcp.Server {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_transaction",
+		Name:        "get_transaction",
+		Annotations: readOnly,
 		Description: "Xem chi tiết một giao dịch theo ID SePay hoặc mã tham chiếu ngân hàng (mã trên ảnh chụp chuyển khoản của khách). " +
 			"Get one transaction by SePay id or bank reference number.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in GetInput) (*mcp.CallToolResult, Transaction, error) {
@@ -63,7 +79,8 @@ func newServer(c *Client) *mcp.Server {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "reconcile_orders",
+		Name:        "reconcile_orders",
+		Annotations: readOnly,
 		Description: "Đối soát hàng loạt đơn hàng với tiền chuyển khoản: mỗi đơn (mã đơn + số tiền) trả về đã trả đủ / thiếu / dư / chưa trả, " +
 			"cộng dồn nếu khách chuyển nhiều lần, kèm danh sách tiền vào không khớp đơn nào. " +
 			"Reconcile orders against incoming bank transfers by order code in the transfer content.",
@@ -83,6 +100,7 @@ func newServer(c *Client) *mcp.Server {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_bank_accounts",
+		Annotations: readOnly,
 		Description: "Liệt kê các tài khoản ngân hàng đã liên kết với SePay, kèm số dư. List linked bank accounts with balances.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, AccountsOutput, error) {
 		accs, err := c.ListBankAccounts(ctx)
@@ -90,7 +108,8 @@ func newServer(c *Client) *mcp.Server {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_payment_qr",
+		Name:        "create_payment_qr",
+		Annotations: readOnly,
 		Description: "Tạo link ảnh mã VietQR để khách quét chuyển khoản đúng số tiền và nội dung. Không gọi API, không tốn giao dịch. " +
 			"Build a VietQR image URL for a bank transfer.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in QRInput) (*mcp.CallToolResult, QROutput, error) {
